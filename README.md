@@ -96,7 +96,7 @@ Cliente → Compra → Stripe → Webhook → Sistema
 ```bash
 # Clone o repositório
 git clone https://github.com/kiassecafernando00-a11y/pro_commerce_global.git
-cd pro-commerce-global
+cd pro_commerce_global
 
 # Instalar dependências
 npm install
@@ -225,12 +225,12 @@ Aceder `/admin/sistema` para:
 
 ## 📝 Licença
 
-Projeto privado - Todos os direitos reservados
+Open Source - MIT License
 
 ## 👥 Suporte
 
 Para questões técnicas ou suporte:
-- Email: suporte@procommerce.com
+- Email: kiassecafernando00@gmail.com
 - Docs: Ver `walkthrough.md` e `DEPLOYMENT.md`
 
 ---

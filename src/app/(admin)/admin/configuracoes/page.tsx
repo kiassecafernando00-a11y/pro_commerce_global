@@ -58,7 +58,7 @@ export default async function SettingsPage() {
                                     name="footerCopyright"
                                     defaultValue={settings?.footerCopyright || ""}
                                     className="w-full p-3 border rounded-lg bg-gray-50 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
-                                    placeholder="ProCommerceGlobal. Todos os direitos reservados."
+                                    placeholder="ProCommerce Global - Open Source"
                                 />
                             </div>
                         </div>
@@ -111,7 +111,7 @@ export default async function SettingsPage() {
                                 <input
                                     name="supportEmail"
                                     defaultValue={settings?.supportEmail || ""}
-                                    placeholder="suporte@procommerce.com"
+                                    placeholder="kiassecafernando00@gmail.com"
                                     className="w-full p-3 border rounded-lg bg-gray-50 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                             </div>
