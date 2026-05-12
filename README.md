@@ -235,4 +235,4 @@ Para questões técnicas ou suporte:
 
 ---
 
-**Desenvolvido com ❤️ para o mercado africano**
+**Desenvolvido com ❤️ por [Kiaseca Fernando](https://github.com/kiassecafernando00-a11y)**

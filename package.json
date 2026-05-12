@@ -2,6 +2,7 @@
   "name": "pro-commerce-global",
   "version": "0.1.0",
   "private": true,
+  "author": "Kiaseca Fernando <kiassecafernando00@gmail.com>",
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
