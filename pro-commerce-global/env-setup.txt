@@ -1,0 +1,14 @@
+DATABASE_URL="file:./dev.db"
+
+# Next Auth
+NEXTAUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+NEXTAUTH_SECRET="super-secret-complex-key-change-this-in-prod"
+
+# Stripe (Placeholders - Replace with real keys from Stripe Dashboard)
+STRIPE_SECRET_KEY="sk_test_placeholder"
+STRIPE_PUBLISHABLE_KEY="pk_test_placeholder"
+STRIPE_WEBHOOK_SECRET="whsec_placeholder"
+
+# Email (Resend)
+RESEND_API_KEY="re_123_placeholder"

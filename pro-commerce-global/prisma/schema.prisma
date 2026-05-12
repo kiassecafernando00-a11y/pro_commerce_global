@@ -1,0 +1,592 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model for both Customers and Vendors
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String?
+  role          String    @default("CUSTOMER") // CUSTOMER, VENDOR, ADMIN
+  image         String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  store         Store?
+  orders        Order[]
+  transactions  Transaction[]
+  reviews       Review[]
+  wishlist      Wishlist?
+
+  // Personal Info (Required for Vendors)
+  nif               String?
+  birthDate         DateTime?
+  address           String?   // Personal Address
+  city              String?
+  country           String?   @default("Angola")
+  phone             String?
+  idDocumentType    String?   // BI, PASSPORT, DRIVER_LICENSE, CEDULA
+  idDocumentNumber  String?
+  idDocumentImage   String?   // URL of the ID document image (Front)
+  idDocumentImageBack String? // URL of the ID document image (Back)
+  
+  // Payment Integration
+  stripeCustomerId  String?   // Stripe Customer ID for payments
+}
+
+// Store model for Vendors
+model Store {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  logo          String?
+  banner        String?
+  address       String?
+  phone         String?   // Business Phone
+  email         String?   // Business Email
+  nif           String?   // Business Tax ID
+  latitude      Float?
+  longitude     Float?
+  deliveryPricePerKm Decimal @default(0)
+  deliveryBaseFee    Decimal @default(0)
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products      Product[]
+  bankAccounts  StoreBankAccount[]
+  status        String    @default("PENDING") // PENDING, APPROVED, REJECTED, BANNED
+  vendorType    String    @default("NATIONAL") // NATIONAL, INTERNATIONAL
+  
+  // Registration Fee Logic
+  registrationFeeStatus String @default("PENDING") // PENDING, PAID, EXEMPT
+  registrationFeeProof  String? // URL of proof - Legacy
+  
+  // Subscription Logic
+  subscriptionStatus    String    @default("INACTIVE") // ACTIVE, INACTIVE, OVERDUE
+  subscriptionDueDate   DateTime?
+  lastSubscriptionPayment DateTime?
+
+  paymentInfo   String?   // IBAN/Instruções de pagamento do vendedor (Legacy)
+  
+  // Debt & Enforcement
+  commissionDebt Decimal   @default(0)
+  debtDueDate    DateTime? // If set, debt must be paid by this date
+  isSuspended    Boolean   @default(false)
+
+  // Payment Integration
+  stripeAccountId String?   // Stripe Connect Account ID for payouts
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  transactions  Transaction[]
+  paymentProofs PaymentProof[]
+  wallet        Wallet?
+  events        Event[]
+  coupons       Coupon[]
+}
+
+model PaymentProof {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  type      String   // REGISTRATION_FEE, COMMISSION, WITHDRAWAL_FEE, SUBSCRIPTION
+  amount    Decimal
+  imageUrl  String
+  
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  adminNote String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StoreBankAccount {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  bankName  String
+  iban      String
+  holderName String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Product model
+model Product {
+  id            String    @id @default(cuid())
+  name          String
+  description   String
+  price         Decimal
+  currency      String    @default("AOA") // AOA, USD, EUR
+  category      String    @default("Outros") // Legacy string field, keep for now
+  
+  // Relation to new Category model
+  categoryId    String?
+  categoryRel   Category? @relation(fields: [categoryId], references: [id])
+  
+  stock         Int       @default(0)
+  images        String    // JSON string or comma separated URLs
+  status        String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  // New Fields for Dashboard 2.0
+  salePrice     Decimal?
+  sku           String?   @unique
+  tags          String?   // Comma separated
+  isVisible     Boolean   @default(true)
+  
+  storeId       String
+  store         Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  orderItems    OrderItem[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+}
+
+// Global Categories
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  image       String?   // Icon or Image URL
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+
+// SystemConfig, Banner, and Campaign are defined later in this file.
+// Consolidated 2025.
+
+
+// Order model to track purchases
+model Order {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  total         Decimal
+  deliveryFee   Decimal     @default(0)
+  deliveryMethod String     @default("DELIVERY") // DELIVERY, PICKUP
+  currency      String      @default("AOA")
+  paymentMethod String      @default("MANUAL") // MANUAL, VISA, MASTERCARD, BINANCE
+  address       String?     // JSON string of address
+  status        String      @default("PENDING") // PENDING, PAID, SHIPPED, DELIVERED, CANCELLED, READY_FOR_DELIVERY
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  proofUrl      String?     // URL of payment proof
+  latitude      Float?      // Delivery Latitude
+  longitude     Float?      // Delivery Longitude
+  
+  couponId      String?
+  coupon        Coupon?     @relation(fields: [couponId], references: [id])
+  
+  // Tracking Info
+  trackingCode  String?     @unique
+  estimatedDeliveryDate DateTime?
+  
+  events        OrderEvent[]
+  transactions  Transaction[]
+}
+
+// Order Tracking History
+model OrderEvent {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status      String   // PREPARING, SHIPPED, IN_TRANSIT, DELIVERED, EXCEPTION
+  description String
+  location    String?
+  createdAt   DateTime @default(now())
+}
+
+// Delivery Routes Configuration
+model DeliveryRoute {
+  id            String   @id @default(cuid())
+  countryCode   String   @unique // AO, PT, BR...
+  countryName   String
+  carrier       String   @default("ProCommerce Logistics")
+  baseDays      Int      @default(3) // Min days
+  maxDays       Int      @default(7) // Max days
+  isActive      Boolean  @default(true)
+}
+
+// OrderItem model
+model OrderItem {
+  id            String    @id @default(cuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity      Int
+  price         Decimal
+}
+
+// --- ADMIN SYSTEM & FINANCIAL CORE ---
+
+// Global System Configuration (Singleton - usually only 1 record)
+model SystemConfig {
+  id                String   @id @default("global")
+  appName           String   @default("ProCommerceGlobal")
+  platformFeePercent Decimal @default(5.0) // 5% commission default
+  vendorRegistrationFee Decimal @default(5000) // Registration fee in AOA
+  withdrawalFeePercent Decimal @default(1.0) // 1% withdrawal fee default
+  maintenanceMode   Boolean  @default(false)
+  
+  // Contact & Location
+  supportEmail      String?
+  supportPhone      String?
+  address           String?
+  workingHours      String?
+
+  // Financial
+  adminPaymentInfo  String?  // IBAN or Payment Link for Vendor Fees
+
+  // Social Media
+  socialFacebook    String?
+  socialInstagram   String?
+  socialLinkedin    String?
+  socialTiktok      String?
+  socialYoutube     String?
+
+  // Legal Content (Markdown support)
+  termsUrl          String?
+  privacyUrl        String?
+  policyTerms       String? // Full markdown content
+  policyPrivacy     String? // Full markdown content
+  
+  // Feature Flags
+  enableReviews     Boolean  @default(true)
+  enableBlog        Boolean  @default(false)
+  enableDigitalProducts Boolean @default(false)
+
+  // Analytics & SEO
+  googleAnalyticsId String?
+  facebookPixelId   String?
+
+  updatedAt         DateTime @updatedAt
+  
+  // Branding
+  logoUrl           String?
+  faviconUrl        String?
+  
+  // Mobile App Links
+  appStoreUrl       String?
+  googlePlayUrl     String?
+
+  // Footer Content
+  footerSlogan      String?
+  footerCopyright   String?
+  
+  // Institutional Info
+  companyMission    String? // Markdown or Text
+  companyVision     String? // Markdown or Text
+  companyValues     String? // JSON string: [{title, description, icon}]
+
+  // Careers Page
+  careersIntro      String? // Text block
+  careersBenefits   String? // JSON string: [{title, description, icon}]
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+
+// Marketing & Content
+model Banner {
+  id        String   @id @default(cuid())
+  title     String?
+  imageUrl  String
+  mobileImageUrl String?
+  link      String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  type        String   // CONTEST, TRAINING, GIVEAWAY
+  imageUrl    String?
+  prize       String?  // Description of the prize if giveaway
+  startDate   DateTime?
+  endDate     DateTime?
+  link        String?  // External link for registration
+  
+  // Reward details
+  rewardType  String?  // MONEY, PRODUCT, SERVICE, OTHER
+  rewardValue String?  // "50000", "iPhone 15", "Consultoria"
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+// Supported Currencies
+model Currency {
+  id          String   @id @default(cuid())
+  code        String   @unique // AOA, USD, EUR
+  name        String
+  symbol      String   // Kz, $, €
+  exchangeRateToAOA Decimal @default(1) // Base is AOA. 1 USD = 850 AOA
+  isActive    Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+// Payment Gateway Configurations (Stripe, Binance, etc.)
+model PaymentMethodConfig {
+  id          String   @id @default(cuid())
+  provider    String   @unique // STRIPE, BINANCE, PAYPAL, FLUTTERWAVE
+  name        String
+  publicKey   String?  // Store Encrypted ideally
+  secretKey   String?  // Store Encrypted ideally
+  isActive    Boolean  @default(false)
+  isInternational Boolean @default(false)
+  supportedCurrencies String // Comma separated: USD,EUR
+  updatedAt   DateTime @updatedAt
+}
+
+// Platform Bank Accounts (For Manual Payments / Transfers)
+model BankAccount {
+  id            String   @id @default(cuid())
+  bankName      String
+  holderName    String
+  iban          String?
+  swift         String?
+  accountNumber String? // For USD/Non-IBAN
+  currency      String   @default("AOA") // AOA, USD, EUR
+  isActive      Boolean  @default(true)
+  instructions  String?  // "Send proof to..."
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+
+// Financial Ledger (Immutable Transaction History)
+model Transaction {
+  id              String   @id @default(cuid())
+  type            String   // SALE, COMMISSION, WITHDRAWAL, REGISTRATION_FEE, REFUND
+  amount          Decimal
+  currency        String
+  status          String   @default("COMPLETED") // PENDING, COMPLETED, FAILED, REFUNDED
+  
+  description     String?
+  reference       String?  // Gateway ID or Manual Ref
+  
+  // Security Fields (Immutability)
+  hash            String?  @unique // SHA-256 of the record
+  previousHash    String?  // Chain link
+  metadata        Json?    // Context data
+  
+  // Relations
+  orderId         String?
+  order           Order?   @relation(fields: [orderId], references: [id])
+  
+  userId          String?  // Who initiated (Payer or Payee)
+  user            User?    @relation(fields: [userId], references: [id])
+  
+  storeId         String?  // If related to a store payout
+  store           Store?   @relation(fields: [storeId], references: [id])
+
+  walletId        String?
+  wallet          Wallet?  @relation(fields: [walletId], references: [id])
+
+  gateway         String?  // Manual, Stripe, Binance
+  proofUrl        String?  // URL of the transaction proof file
+  createdAt       DateTime @default(now())
+}
+
+model Wallet {
+  id          String   @id @default(cuid())
+  storeId     String   @unique
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  balance     Decimal  @default(0)
+  pending     Decimal  @default(0) // Funds in hold
+  currency    String   @default("AOA")
+  
+  transactions Transaction[]
+  payouts      PayoutRequest[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PayoutRequest {
+  id          String   @id @default(cuid())
+  walletId    String
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
+  
+  amount      Decimal
+  currency    String   @default("AOA")
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED, PAID
+  
+  method      String   // BANK_TRANSFER, IBAN, E-WALLET
+  details     String   // JSON or text: IBAN number, etc.
+  
+  adminNote   String?
+  rejectionReason String?
+  
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Security Audit Log
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // UPDATED_GATEWAY, APPROVED_VENDOR, etc.
+  
+  // Actor
+  actorEmail  String?  // Who performed the action
+  actorId     String?
+  ipAddress   String?
+  userAgent   String?
+  
+  // Target
+  entityId    String?
+  entityType  String?  // ORDER, PRODUCT, SETTINGS
+  
+  // Data Change
+  oldData     Json?
+  newData     Json?
+  details     String?  // Human readable summary
+  metadata    Json?    // Extra context
+  
+  severity    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  
+  createdAt   DateTime @default(now())
+}
+
+// --- NEW FEATURES (Reviews, Wishlist, Coupons) ---
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Wishlist {
+  id        String         @id @default(cuid())
+  userId    String         @unique
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     WishlistItem[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([wishlistId, productId])
+}
+
+model Coupon {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  description    String?
+  discountType   String    // PERCENTAGE, FIXED
+  discountValue  Decimal
+  minOrderAmount Decimal?
+  maxDiscount    Decimal?  // Max discount amount for percentage coupons
+  
+  startDate      DateTime?
+  endDate        DateTime?
+  maxUses        Int?      // Total global uses
+  usedCount      Int       @default(0)
+  
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  orders         Order[]
+  
+  storeId        String?
+  store          Store?    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+model UploadSession {
+  id        String   @id @default(cuid())
+  frontImage String?
+  backImage  String?
+  documentType String? // PASSPORT, BI, ETC
+  status     String   @default("PENDING") // PENDING, COMPLETED
+  createdAt  DateTime @default(now())
+}
+
+// --- VENDOR EVENTS SYSTEM ---
+
+model Event {
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String
+  type        String   // GIVEAWAY, CONTEST, CHALLENGE, QUIZ
+  
+  prizeType   String   // PRODUCT, COUPON, MONEY, OTHER
+  prizeDescription String // e.g., "5000 Kz", "iPhone 15", "Cupom 20%"
+  prizeValue   Decimal? // Value for Coupon % or Money amount
+  
+  quizQuestion  String? // For QUIZ/CHALLENGE
+  correctAnswer String? // For QUIZ
+  
+  startDate   DateTime
+  endDate     DateTime
+  
+  status      String   @default("DRAFT") // DRAFT, ACTIVE, ENDED, CANCELLED
+  imageUrl    String?
+
+  participants EventParticipant[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EventParticipant {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  name        String
+  phone       String
+  email       String?
+  
+  hasWon      Boolean  @default(false)
+  
+  submissionData String? // JSON or text answer for quizzes/challenges
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([eventId, phone]) // Prevent duplicate entries by phone per event
+}

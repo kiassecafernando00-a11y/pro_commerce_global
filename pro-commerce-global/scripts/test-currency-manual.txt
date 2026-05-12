@@ -1,0 +1,24 @@
+
+const { getExchangeRates } = require('./src/app/actions/public');
+
+async function testCurrency() {
+    console.log("Testing getExchangeRates...");
+    try {
+        const rates = await getExchangeRates();
+        console.log("Rates returned:", rates);
+        
+        // Log expected structure
+        if (rates.AOA && rates.USD) {
+            console.log("Structure looks correct.");
+            console.log(`1 USD = ${1/rates.USD} AOA`);
+        } else {
+            console.log("Structure might be empty if DB has no active currencies.");
+        }
+    } catch (error) {
+        console.error("Test failed:", error);
+    }
+}
+
+// Mock Prisma for simple run if not using ts-node properly or environment issues
+// Ideally we run this with ts-node on the project
+console.log("To verify, run: npx tsx scripts/test-currency.ts");
